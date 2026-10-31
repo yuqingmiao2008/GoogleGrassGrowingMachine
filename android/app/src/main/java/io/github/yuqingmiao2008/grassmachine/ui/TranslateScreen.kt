@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -84,7 +86,9 @@ fun TranslateScreen() {
     var showParams by remember { mutableStateOf(false) }
     var showLangPool by remember { mutableStateOf(false) }
     var audioBusy by remember { mutableStateOf(false) }
+    var audioRunning by remember { mutableStateOf(false) }
     var audioText by remember { mutableStateOf("") }
+    var showJobLog by remember { mutableStateOf(false) }
 
     val storagePerm = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -246,6 +250,25 @@ fun TranslateScreen() {
                     state.error?.let {
                         Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                     }
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        TextButton(onClick = { showJobLog = true }) { Text("任务日志") }
+                        if (state.log.isNotEmpty()) {
+                            TextButton(onClick = { GrassApp.job.clearLog() }) { Text("清空日志") }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (audioRunning) {
+            item {
+                SectionCard(title = "音频任务", subtitle = "完成后会提示保存路径；可切到后台等待") {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    Text(
+                        audioText.ifBlank { "准备中…" },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
                 }
             }
         }
@@ -334,6 +357,30 @@ fun TranslateScreen() {
         )
     }
 
+    if (showJobLog) {
+        AlertDialog(
+            onDismissRequest = { showJobLog = false },
+            title = { Text("任务日志") },
+            text = {
+                androidx.compose.foundation.layout.Column(
+                    Modifier
+                        .heightIn(max = 420.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    if (state.log.isEmpty()) {
+                        Text("暂无日志", style = MaterialTheme.typography.bodySmall)
+                    } else {
+                        state.log.forEach { MonoText(it) }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { ctx.copy(state.log.joinToString("\n"), "日志") }) { Text("复制") }
+            },
+            dismissButton = { TextButton(onClick = { showJobLog = false }) { Text("关闭") } },
+        )
+    }
+
     if (showLangPool) {
         LangPoolDialog(
             settings = settings,
@@ -351,10 +398,15 @@ fun TranslateScreen() {
             onDismiss = { audioBusy = false },
             onStart = { lang, asFull, asZip, prefix ->
                 audioBusy = false
+                audioRunning = true
                 audioText = "准备中…"
                 scope.launch {
-                    runAudioExport(ctx, translatedAll, rows.map { it.text }, lang, asFull, asZip, prefix, settings) {
-                        audioText = it
+                    try {
+                        runAudioExport(ctx, translatedAll, rows.map { it.text }, lang, asFull, asZip, prefix, settings) {
+                            audioText = it
+                        }
+                    } finally {
+                        audioRunning = false
                     }
                 }
             },

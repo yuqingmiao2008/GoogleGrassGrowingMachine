@@ -14,8 +14,8 @@ android {
         applicationId = "io.github.yuqingmiao2008.grassmachine"
         minSdk = 24
         targetSdk = 35
-        versionCode = 40002
-        versionName = "4.0.0-android.2"
+        versionCode = 40003
+        versionName = "4.0.0-android.3"
     }
 
     signingConfigs {
@@ -34,8 +34,9 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = true
-            isShrinkResources = true
+            // 首版先关闭 R8：优先保证真机稳定性（实测通过后可改回 true，体积约 1.7MB）
+            isMinifyEnabled = false
+            isShrinkResources = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.getByName("release")
         }
