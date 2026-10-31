@@ -26,6 +26,7 @@ object Net {
     /** 当前生效的 Google 边缘 IP（null 表示使用系统 DNS） */
     @Volatile
     var activeIp: String? = null
+        private set
 
     private val googleHosts = listOf(
         "googleapis.com", "google.com", "gstatic.com", "googleusercontent.com", "googleapis.cn",
