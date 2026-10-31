@@ -132,7 +132,7 @@ fun AppRoot() {
     val dest = Dest.valueOf(current)
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
-    val ip by remember { mutableStateOf(Net.activeIp) }
+    val ip by Net.activeIpFlow.collectAsStateWithLifecycle()
     var showGuide by rememberSaveable { mutableStateOf(GrassApp.settings.value.firstRun) }
 
     BackHandler(enabled = drawerState.isOpen || dest != Dest.TRANSLATE) {

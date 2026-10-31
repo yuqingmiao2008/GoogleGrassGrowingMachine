@@ -57,6 +57,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.yuqingmiao2008.grassmachine.GrassApp
 import io.github.yuqingmiao2008.grassmachine.core.GoogleTts
 import io.github.yuqingmiao2008.grassmachine.core.JobRow
+import io.github.yuqingmiao2008.grassmachine.core.Net
 import io.github.yuqingmiao2008.grassmachine.core.RowStatus
 import io.github.yuqingmiao2008.grassmachine.core.Saver
 import io.github.yuqingmiao2008.grassmachine.data.LangData
@@ -77,6 +78,7 @@ fun TranslateScreen() {
     val settings by GrassApp.settings.state.collectAsStateWithLifecycle()
     val state by GrassApp.job.state.collectAsStateWithLifecycle()
     val ttsState by GrassApp.tts.state.collectAsStateWithLifecycle()
+    val activeIp by Net.activeIpFlow.collectAsStateWithLifecycle()
 
     var input by rememberSaveable { mutableStateOf("") }
     var showParams by remember { mutableStateOf(false) }
@@ -105,7 +107,7 @@ fun TranslateScreen() {
     var savedFor by remember { mutableStateOf("") }
     LaunchedEffect(state.finished, state.chains) {
         val key = "${state.chains.joinToString("-")}#${rows.size}"
-        if (state.finished && rows.isNotEmpty() && savedFor != key) {
+        if (state.finished && rows.isNotEmpty() && state.jobId != 0L && savedFor != key) {
             savedFor = key
             if (rows.count { it.stepDone >= state.chains.size } > 0) {
                 GrassApp.history.add(
@@ -175,6 +177,13 @@ fun TranslateScreen() {
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     TextButton(onClick = { showParams = true }) { Text("调整参数") }
                     TextButton(onClick = { showLangPool = true }) { Text("选择语种") }
+                }
+                if (activeIp == null) {
+                    Text(
+                        "⚠ 当前未启用可用 IP：国内网络直连 Google 会失败，建议先到「IP 检查」扫描（约 10~40 秒）",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
                 }
             }
         }

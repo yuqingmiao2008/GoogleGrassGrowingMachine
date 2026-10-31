@@ -48,10 +48,12 @@ import io.github.yuqingmiao2008.grassmachine.core.IpScanner
 import io.github.yuqingmiao2008.grassmachine.core.Net
 import io.github.yuqingmiao2008.grassmachine.core.RootHosts
 import io.github.yuqingmiao2008.grassmachine.core.Translator
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun IpCheckScreen() {
@@ -192,10 +194,15 @@ fun IpCheckScreen() {
                         scope.launch {
                             append("==== 保存的 IP 逐个复测 ====")
                             val saved = settings.ipList
-                            if (saved.isEmpty()) append("没有保存的 IP")
-                            saved.take(20).forEach { ip ->
-                                val ms = IpScanner().verify(ip, 8000)
-                                append(if (ms != null) "✓ $ip  ${ms}ms" else "✗ $ip  不可用")
+                            if (saved.isEmpty()) {
+                                append("没有保存的 IP")
+                                return@launch
+                            }
+                            withContext(Dispatchers.IO) {
+                                saved.take(20).forEach { ip ->
+                                    val ms = IpScanner().verify(ip, 8000)
+                                    append(if (ms != null) "✓ $ip  ${ms}ms" else "✗ $ip  不可用")
+                                }
                             }
                         }
                     }) { Text("复测保存 IP") }
@@ -313,7 +320,7 @@ fun IpCheckScreen() {
                             rootBusy = true
                             scope.launch {
                                 val ips = results.map { it.ip }.ifEmpty { settings.ipList }
-                                val res = RootHosts.apply(ips)
+                                val res = withContext(Dispatchers.IO) { RootHosts.apply(ips) }
                                 append(if (res.ok) "hosts 写入成功" else "hosts 写入失败：${res.out}")
                                 append(res.out)
                                 rootBusy = false
@@ -324,7 +331,7 @@ fun IpCheckScreen() {
                     OutlinedButton(
                         onClick = {
                             scope.launch {
-                                val res = RootHosts.restore()
+                                val res = withContext(Dispatchers.IO) { RootHosts.restore() }
                                 append(if (res.ok) "已还原 hosts 备份" else "还原失败：${res.out}")
                             }
                         },

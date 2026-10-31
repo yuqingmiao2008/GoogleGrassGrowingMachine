@@ -1,5 +1,8 @@
 package io.github.yuqingmiao2008.grassmachine.core
 
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import okhttp3.ConnectionPool
 import okhttp3.Dispatcher
 import okhttp3.Dns
@@ -27,6 +30,11 @@ object Net {
     @Volatile
     var activeIp: String? = null
         private set
+
+    private val _activeIpFlow = MutableStateFlow<String?>(null)
+
+    /** 供 UI 观察当前生效 IP */
+    val activeIpFlow: StateFlow<String?> = _activeIpFlow.asStateFlow()
 
     private val googleHosts = listOf(
         "googleapis.com", "google.com", "gstatic.com", "googleusercontent.com", "googleapis.cn",
@@ -67,5 +75,6 @@ object Net {
 
     fun setActiveIp(ip: String?) {
         activeIp = ip?.trim()?.takeIf { it.isNotEmpty() }
+        _activeIpFlow.value = activeIp
     }
 }

@@ -44,6 +44,7 @@ data class JobState(
     val error: String? = null,
     val finished: Boolean = false,
     val log: List<String> = emptyList(),
+    val jobId: Long = 0L,
 ) {
     val failedCount: Int get() = rows.count { it.status == RowStatus.FAILED }
     val okCount: Int get() = rows.count { it.stepDone >= chains.size && chains.isNotEmpty() }
@@ -127,6 +128,7 @@ class TranslateJob(
             _state.update {
                 it.copy(
                     chains = chains, running = true, error = null, finished = false, step = 0,
+                    jobId = System.currentTimeMillis(),
                     rows = it.rows.map { r -> r.copy(text = r.original, stepDone = 0, status = RowStatus.PENDING, error = null) },
                 )
             }
