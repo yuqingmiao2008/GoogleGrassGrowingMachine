@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- 三丛草叶 -->
+    <path
+        android:fillColor="#A5D6A7"
+        android:pathData="M44,74 C41,62 40,52 43,42 C44.5,52 47,62 48,74 Z" />
+    <path
+        android:fillColor="#E8F5E9"
+        android:pathData="M54,76 C50,60 50,46 54,34 C58,46 58,60 54,76 Z" />
+    <path
+        android:fillColor="#C8E6C9"
+        android:pathData="M64,74 C65,62 68,52 71,42 C74,52 71,62 68,74 Z" />
+    <!-- 地面 -->
+    <path
+        android:fillColor="#66BB6A"
+        android:pathData="M36,74 h36 a3,3 0 0 1 0,6 h-36 a3,3 0 0 1 0,-6 z" />
+</vector>

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">谷歌生草机</string>
+    <string name="accessibility_label">谷歌生草机 · 后台保活</string>
+    <string name="accessibility_description">仅用于提高本应用的后台存活优先级，不会读取、记录或上传任何界面内容与输入。</string>
+</resources>

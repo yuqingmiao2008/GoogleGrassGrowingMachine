@@ -1,0 +1,129 @@
+name: 构建 Android APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "发布标签（留空则用 v<versionName>）"
+        required: false
+        default: ""
+  push:
+    tags:
+      - "v*"
+    branches:
+      - main
+    paths:
+      - "android/**"
+      - ".github/workflows/android.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 签出代码
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 设置 JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: 设置 Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: 安装 SDK 组件
+        run: |
+          yes | sdkmanager --licenses > /dev/null 2>&1 || true
+          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0" > /dev/null
+
+      - name: 缓存 Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ hashFiles('android/**/*.gradle.kts', 'android/gradle/wrapper/gradle-wrapper.properties', 'android/gradle.properties') }}
+          restore-keys: |
+            gradle-
+
+      - name: 读取版本号
+        id: ver
+        run: |
+          VN=$(grep -oP 'versionName\s*=\s*"\K[^"]+' android/app/build.gradle.kts | head -1)
+          VC=$(grep -oP 'versionCode\s*=\s*\K[0-9]+' android/app/build.gradle.kts | head -1)
+          echo "name=$VN" >> "$GITHUB_OUTPUT"
+          echo "code=$VC" >> "$GITHUB_OUTPUT"
+          echo "版本：$VN ($VC)"
+
+      - name: 构建 Release APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon --stacktrace \
+            -Dorg.gradle.jvmargs="-Xmx3g -Dfile.encoding=UTF-8"
+
+      - name: 生成校验信息
+        run: |
+          cd android/app/build/outputs/apk/release
+          ls -lh *.apk
+          sha256sum *.apk > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: ggm-android-${{ steps.ver.outputs.name }}
+          path: |
+            android/app/build/outputs/apk/release/*.apk
+            android/app/build/outputs/apk/release/SHA256SUMS.txt
+
+      - name: 发布 Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.release_tag != '' && github.event.inputs.release_tag || format('v{0}', steps.ver.outputs.name) }}
+          name: 谷歌生草机 Android ${{ steps.ver.outputs.name }}
+          body: |
+            ## 谷歌生草机 Android ${{ steps.ver.outputs.name }}
+
+            桌面版「谷歌生草机 4」的 Android 移植版，直接下载下方 APK 安装即可（无需 root）。
+
+            ### 安装
+            1. 下载 `app-release.apk`
+            2. 允许「安装未知来源应用」后安装
+            3. 首次启动请按弹窗提示完成保活设置（通知 / 电池白名单 / 自启动 / 后台锁定）
+            4. 国内网络请先到「IP 检查」页点「开始扫描」，扫描到可用 IP 会自动启用
+
+            ### 主要功能
+            - 多轮小语种翻译（次数 / 超时 / 重试 / 并发 / 间隔 / 最终语言全部可调）
+            - 全语种池：Google 翻译支持的全部语种，可搜索、全选、只看常用
+            - 原文 / 译文 / 对照三种复制，逐行复制与朗读，可导出 txt
+            - Google 在线 TTS：完整 MP3 + 分段 MP3 压缩包，保存到手机 Download 目录
+            - 系统 TTS 朗读，优先使用 Google TTS 引擎
+            - 内置 Google IP 扫描（两阶段校验），无需 root 即可让翻译与 TTS 走可用 IP
+            - Material 3 界面、纯黑 OLED 模式、动态取色、字体缩放
+            - 历史记录（自动保存、搜索、收藏、导出）
+            - 前台服务 + 保活引导（通知 / 电池优化白名单 / 自启动 / 后台锁定 / 无障碍）
+
+            ### 说明
+            - 国内网络下 Google 翻译需配合 IP 扫描使用；若大量失败请重新扫描 IP 或降低并发
+            - 可在设置中填写自己的 Google Cloud Translation API Key 走官方通道（更稳定）
+            - 本包为开源自签名（密钥在仓库内），后续版本可覆盖安装
+
+            **SHA256**
+            ```
+            见附件 SHA256SUMS.txt
+            ```
+          files: |
+            android/app/build/outputs/apk/release/*.apk
+            android/app/build/outputs/apk/release/SHA256SUMS.txt
+          fail_on_unmatched_files: true
