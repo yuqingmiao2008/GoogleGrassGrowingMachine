@@ -161,7 +161,7 @@ cython_debug/
 
 # 本项目
 GoogleTranslateIpCheck/
-data/
+/data/
 
 # Android
 android/.gradle/

@@ -36,12 +36,13 @@ object Net {
         return googleHosts.any { h == it || h.endsWith(".$it") }
     }
 
-    private fun dnsFor(ip: String?): Dns = Dns { hostname ->
-        if (ip != null && isGoogleHost(hostname)) {
-            listOf(InetAddress.getByName(ip))
-        } else {
-            Dns.SYSTEM.lookup(hostname)
-        }
+    private fun dnsFor(ip: String?): Dns = object : Dns {
+        override fun lookup(hostname: String): List<InetAddress> =
+            if (ip != null && isGoogleHost(hostname)) {
+                listOf(InetAddress.getByName(ip))
+            } else {
+                Dns.SYSTEM.lookup(hostname)
+            }
     }
 
     /** 基础客户端（长超时），单个请求的时间限制由调用方用 callTimeout 控制 */

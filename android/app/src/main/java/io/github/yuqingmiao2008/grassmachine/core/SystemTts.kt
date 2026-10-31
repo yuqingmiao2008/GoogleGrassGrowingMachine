@@ -97,7 +97,8 @@ class SystemTts(private val context: Context) {
             }
         })
         val engineLabel = runCatching {
-            val pkg = t.defaultEngine ?: t.engine ?: ""
+            val pkg = t.defaultEngine ?: ""
+            if (pkg.isBlank()) return@runCatching "系统默认引擎"
             val app = context.packageManager.getApplicationLabel(
                 context.packageManager.getApplicationInfo(pkg, 0)
             ).toString()
