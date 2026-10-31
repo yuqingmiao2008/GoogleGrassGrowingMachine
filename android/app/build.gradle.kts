@@ -14,8 +14,8 @@ android {
         applicationId = "io.github.yuqingmiao2008.grassmachine"
         minSdk = 24
         targetSdk = 35
-        versionCode = 40003
-        versionName = "4.0.0-android.3"
+        versionCode = 40004
+        versionName = "4.0.0-android.4"
     }
 
     signingConfigs {

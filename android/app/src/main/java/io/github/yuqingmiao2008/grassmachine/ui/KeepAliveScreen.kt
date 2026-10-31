@@ -30,6 +30,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -42,6 +43,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.yuqingmiao2008.grassmachine.GrassApp
 import io.github.yuqingmiao2008.grassmachine.service.KeepAliveService
 import io.github.yuqingmiao2008.grassmachine.service.WorkService
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import android.app.NotificationManager
 
 @Composable
 fun KeepAliveScreen() {
@@ -51,6 +55,11 @@ fun KeepAliveScreen() {
     var notificationsOn by remember { mutableStateOf(NotificationManagerCompat.from(ctx).areNotificationsEnabled()) }
     var batteryOk by remember { mutableStateOf(isIgnoringBattery(ctx)) }
     var a11yOn by remember { mutableStateOf(isAccessibilityEnabled(ctx)) }
+    var diagTick by remember { mutableStateOf(0) }
+    var testResult by remember { mutableStateOf("") }
+    var serviceRunning by remember { mutableStateOf(WorkService.isRunning) }
+    var serviceError by remember { mutableStateOf(WorkService.lastError) }
+    val scope = rememberCoroutineScope()
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -59,6 +68,9 @@ fun KeepAliveScreen() {
                 notificationsOn = NotificationManagerCompat.from(ctx).areNotificationsEnabled()
                 batteryOk = isIgnoringBattery(ctx)
                 a11yOn = isAccessibilityEnabled(ctx)
+                serviceRunning = WorkService.isRunning
+                serviceError = WorkService.lastError
+                diagTick++
             }
         }
         lifecycleOwner.lifecycle.addObserver(obs)
@@ -96,6 +108,60 @@ fun KeepAliveScreen() {
                     }) { Text("去开启") }
                     OutlinedButton(onClick = { openAppNotificationSettings(ctx) }) { Text("通知设置") }
                 }
+            }
+        }
+
+        item {
+            SectionCard(
+                title = "通知诊断（看不到通知时先看这里）",
+                subtitle = "逐项核对：权限 → 频道 → 前台服务。点「发送测试通知」最直观",
+            ) {
+                val channelText = remember(diagTick, notificationsOn) { channelSummary(ctx) }
+                SettingRow("允许通知", if (notificationsOn) "已允许" else "已关闭（通知栏不会有任何显示）") {
+                    StatusDot(notificationsOn)
+                }
+                SettingRow("通知频道「后台任务进度」", channelText) {
+                    StatusDot(!channelText.contains("已关闭") && !channelText.contains("尚未创建"))
+                }
+                SettingRow(
+                    "前台服务",
+                    if (serviceRunning) "运行中（通知应常驻）"
+                    else serviceError ?: "未运行（仅在「常驻前台服务」开启或翻译时才启动）",
+                ) {
+                    StatusDot(serviceRunning)
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = {
+                        testResult = WorkService.sendTestNotification(ctx)
+                        diagTick++
+                    }) { Text("发送测试通知") }
+                    OutlinedButton(onClick = { openChannelSettings(ctx) }) { Text("频道设置") }
+                    OutlinedButton(onClick = {
+                        scope.launch {
+                            WorkService.stop(ctx)
+                            delay(300)
+                            WorkService.start(ctx, text = "待命中")
+                            delay(600)
+                            serviceRunning = WorkService.isRunning
+                            serviceError = WorkService.lastError
+                            diagTick++
+                            ctx.toast(if (serviceRunning) "前台服务已启动" else "启动失败：${'$'}{WorkService.lastError}")
+                        }
+                    }) { Text("重启前台服务") }
+                }
+                if (testResult.isNotBlank()) {
+                    Text(
+                        testResult,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+                Text(
+                    "国产 ROM 常见坑：① 通知被设为「不重要/静默」后折叠 ② 只允许一次通知权限后不再弹窗 " +
+                        "③ 清理后台时连带清掉前台服务 ④ 电池优化限制后台。逐条开一遍即可。",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
 
@@ -231,6 +297,33 @@ private fun openBatterySettings(ctx: Context) {
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         )
     }.onFailure { openAppDetails(ctx) }
+}
+
+private fun openChannelSettings(ctx: Context) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        val i = Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+            .putExtra(Settings.EXTRA_APP_PACKAGE, ctx.packageName)
+            .putExtra(Settings.EXTRA_CHANNEL_ID, WorkService.CHANNEL_ID)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        runCatching { ctx.startActivity(i) }.onFailure { openAppNotificationSettings(ctx) }
+    } else {
+        openAppNotificationSettings(ctx)
+    }
+}
+
+private fun channelSummary(ctx: Context): String {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return "Android 8 以下无频道概念"
+    val nm = ctx.getSystemService(NotificationManager::class.java) ?: return "无法获取通知管理器"
+    val ch = nm.getNotificationChannel(WorkService.CHANNEL_ID)
+        ?: return "尚未创建（点「重启前台服务」后自动创建）"
+    val level = when (ch.importance) {
+        NotificationManager.IMPORTANCE_NONE -> "已关闭"
+        NotificationManager.IMPORTANCE_MIN -> "极低"
+        NotificationManager.IMPORTANCE_LOW -> "低"
+        NotificationManager.IMPORTANCE_DEFAULT -> "默认"
+        else -> "高"
+    }
+    return "重要性：${'$'}level"
 }
 
 private fun openAppNotificationSettings(ctx: Context) {

@@ -93,6 +93,8 @@ class MainActivity : ComponentActivity() {
             notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
 
+        // 先建好通知频道，保证设置页/诊断页能看到频道状态
+        io.github.yuqingmiao2008.grassmachine.service.WorkService.ensureChannel(this)
         startForegroundIfNeeded()
         GrassApp.tts.init(GrassApp.settings.value.ttsEngine)
 
@@ -119,7 +121,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        if (!isChangingConfigurations) {
+        // 任务还在跑时不要撤掉前台服务与通知，否则退出界面就会失去后台保活
+        if (!isChangingConfigurations && !GrassApp.job.state.value.running) {
             io.github.yuqingmiao2008.grassmachine.service.WorkService.stop(this)
         }
     }

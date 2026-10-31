@@ -55,6 +55,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.yuqingmiao2008.grassmachine.GrassApp
 import io.github.yuqingmiao2008.grassmachine.core.GoogleTts
@@ -205,6 +206,9 @@ fun TranslateScreen() {
                             GrassApp.job.start(false)
                             if (settings.foregroundService) {
                                 WorkService.update(ctx, "正在生草", "准备中…")
+                                if (!NotificationManagerCompat.from(ctx).areNotificationsEnabled()) {
+                                    ctx.toast("通知权限被关闭，后台进度通知将不可见（保活引导页可修复）")
+                                }
                             }
                         }
                     },
